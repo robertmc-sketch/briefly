@@ -45,7 +45,6 @@ function SkeletonCard() {
 }
 
 export default function NewsDashboard() {
-  console.log("APP LOADED v2");
   const [activeTopic, setActiveTopic] = useState(TOPICS[0]);
   const [stories, setStories] = useState({});
   const [loading, setLoading] = useState(false);
@@ -58,10 +57,9 @@ export default function NewsDashboard() {
     setError(null);
 
     try {
-      console.log("NEWS KEY:", process.env.REACT_APP_NEWS_API_KEY);
       // Step 1: Fetch real articles from NewsAPI
       const newsRes = await fetch(
-        `https://newsapi.org/v2/everything?q=${encodeURIComponent(topic.query)}&language=en&sortBy=publishedAt&pageSize=5&apiKey=${process.env.REACT_APP_NEWS_API_KEY}`
+        `/api/news?q=${encodeURIComponent(topic.query)}`
       );
       const newsData = await newsRes.json();
 
