@@ -1,30 +1,29 @@
 import { useState, useEffect, useCallback } from "react";
 
 const TOPICS = [
-  { id: "politics", label: "Politics & Current Events", icon: "🏛️", query: "politics current events government policy" },
-  { id: "technology", label: "Technology & AI", icon: "🤖", query: "technology artificial intelligence science innovation" },
-  { id: "science", label: "Science & History", icon: "🔭", query: "science discovery history research" },
-  { id: "iran", label: "US–Iran War", icon: "⚡", query: "US Iran war 2026 military strikes Operation Epic Fury Operation Roaring Lion Middle East conflict" },
+  { id: "politics", label: "Politics & Current Events", icon: "🏛️", query: "politics government policy" },
+  { id: "technology", label: "Technology & AI", icon: "🤖", query: "artificial intelligence technology" },
+  { id: "science", label: "Science & History", icon: "🔭", query: "science discovery research" },
+  { id: "iran", label: "US–Iran War", icon: "⚡", query: "Iran war military strikes Middle East" },
 ];
 
-const SYSTEM_PROMPT = `You are a neutral, factual news summarizer. 
-Given a news topic, generate 5 recent, realistic news stories.
+const SUMMARIZE_PROMPT = `You are a neutral, factual news summarizer.
+
+Given a list of news article headlines and descriptions, return a clean JSON summary array.
 
 Rules:
 - Use plain, direct language only
-- No sensationalist or alarming headlines
+- No sensationalist or alarming phrasing
 - No opinion or editorial content
-- No repetitive stories (each must be distinctly different)
 - Each summary must be exactly 2-3 sentences: factual, clear, calm
-- Headlines must be under 12 words, descriptive but not dramatic
+- Keep the original headline exactly as provided
+- Keep the original source and url exactly as provided
 
 Respond ONLY with a JSON array, no markdown, no preamble. Format:
 [
-  { "headline": "...", "summary": "...", "source": "Reuters" },
+  { "headline": "...", "summary": "...", "source": "...", "url": "..." },
   ...
-]
-
-Use realistic but varied source names like: Reuters, BBC News, AP News, NPR, The Guardian, Nature, Science Daily, MIT Technology Review, Politico, C-SPAN News.`;
+]`;
 
 function timeAgo(date) {
   const mins = Math.floor((Date.now() - date) / 60000);
@@ -58,7 +57,26 @@ export default function NewsDashboard() {
     setError(null);
 
     try {
-      const res = await fetch("https://api.anthropic.com/v1/messages", {
+      // Step 1: Fetch real articles from NewsAPI
+      const newsRes = await fetch(
+        `https://newsapi.org/v2/everything?q=${encodeURIComponent(topic.query)}&language=en&sortBy=publishedAt&pageSize=5&apiKey=${process.env.REACT_APP_NEWS_API_KEY}`
+      );
+      const newsData = await newsRes.json();
+
+      if (!newsData.articles || newsData.articles.length === 0) {
+        throw new Error("No articles found");
+      }
+
+      // Step 2: Prepare articles for Claude to summarize
+      const articlesForClaude = newsData.articles.map(a => ({
+        headline: a.title,
+        description: a.description || a.content || "",
+        source: a.source?.name || "Unknown",
+        url: a.url,
+      }));
+
+      // Step 3: Ask Claude to write clean 2-3 sentence summaries
+      const claudeRes = await fetch("https://api.anthropic.com/v1/messages", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -67,15 +85,18 @@ export default function NewsDashboard() {
           "anthropic-dangerous-direct-browser-access": "true",
         },
         body: JSON.stringify({
-          model: "claude-sonnet-4-5-20251001",
+          model: "claude-haiku-4-5-20251001",
           max_tokens: 1000,
-          system: SYSTEM_PROMPT,
-          messages: [{ role: "user", content: `Generate 5 current news stories about: ${topic.query}` }],
+          system: SUMMARIZE_PROMPT,
+          messages: [{
+            role: "user",
+            content: `Summarize these articles:\n${JSON.stringify(articlesForClaude, null, 2)}`
+          }],
         }),
       });
 
-      const data = await res.json();
-      const text = data.content?.find(b => b.type === "text")?.text || "[]";
+      const claudeData = await claudeRes.json();
+      const text = claudeData.content?.find(b => b.type === "text")?.text || "[]";
       const clean = text.replace(/```json|```/g, "").trim();
       const parsed = JSON.parse(clean);
 
@@ -167,6 +188,7 @@ export default function NewsDashboard() {
         .tabs {
           display: flex;
           gap: 0;
+          flex-wrap: wrap;
         }
 
         .tab {
@@ -255,8 +277,17 @@ export default function NewsDashboard() {
           font-size: 18px;
           font-weight: 600;
           line-height: 1.4;
-          color: #e8e2d9;
           margin-bottom: 10px;
+        }
+
+        .story-headline a {
+          color: #e8e2d9;
+          text-decoration: none;
+          transition: color 0.15s;
+        }
+
+        .story-headline a:hover {
+          color: #c9a84c;
         }
 
         .story-summary {
@@ -287,13 +318,24 @@ export default function NewsDashboard() {
           letter-spacing: 0.04em;
         }
 
+        .read-more {
+          font-size: 11px;
+          color: #555;
+          letter-spacing: 0.06em;
+          text-decoration: none;
+          text-transform: uppercase;
+          transition: color 0.15s;
+          margin-left: auto;
+        }
+
+        .read-more:hover { color: #c9a84c; }
+
         .divider {
           width: 24px;
           height: 1px;
           background: #2a2a2a;
         }
 
-        /* Skeleton */
         .skeleton-card {
           background: #141414;
           padding: 28px 32px;
@@ -412,19 +454,28 @@ export default function NewsDashboard() {
             <div className="stories">
               {currentStories.map((s, i) => (
                 <article key={i} className="story-card">
-                  <h2 className="story-headline">{s.headline}</h2>
+                  <h2 className="story-headline">
+                    {s.url ? (
+                      <a href={s.url} target="_blank" rel="noopener noreferrer">{s.headline}</a>
+                    ) : s.headline}
+                  </h2>
                   <p className="story-summary">{s.summary}</p>
                   <div className="story-meta">
                     <span className="story-source">{s.source}</span>
                     <div className="divider" />
                     <span className="story-time">{timeAgo(s.fetchedAt)}</span>
+                    {s.url && (
+                      <a href={s.url} target="_blank" rel="noopener noreferrer" className="read-more">
+                        Read full story →
+                      </a>
+                    )}
                   </div>
                 </article>
               ))}
             </div>
           )}
 
-          <p className="auto-note">Stories refresh automatically every 3 hours · Plain language · No opinion content</p>
+          <p className="auto-note">Real stories · Refreshes every 3 hours · Plain language · No opinion content</p>
         </main>
       </div>
 
