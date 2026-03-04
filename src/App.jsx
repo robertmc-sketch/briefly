@@ -58,6 +58,7 @@ export default function NewsDashboard() {
     setError(null);
 
     try {
+      console.log("API KEY:", process.env.REACT_APP_ANTHROPIC_KEY);
       const res = await fetch("https://api.anthropic.com/v1/messages", {
         method: "POST",
         headers: {
