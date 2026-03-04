@@ -67,7 +67,7 @@ export default function NewsDashboard() {
           "anthropic-dangerous-direct-browser-access": "true",
         },
         body: JSON.stringify({
-          model: "claude-sonnet-4-20250514",
+          model: "claude-sonnet-4-5-20251001",
           max_tokens: 1000,
           system: SYSTEM_PROMPT,
           messages: [{ role: "user", content: `Generate 5 current news stories about: ${topic.query}` }],
