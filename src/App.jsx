@@ -45,6 +45,7 @@ function SkeletonCard() {
 }
 
 export default function NewsDashboard() {
+  console.log("APP LOADED v2");
   const [activeTopic, setActiveTopic] = useState(TOPICS[0]);
   const [stories, setStories] = useState({});
   const [loading, setLoading] = useState(false);
