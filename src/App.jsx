@@ -57,6 +57,7 @@ export default function NewsDashboard() {
     setError(null);
 
     try {
+      console.log("NEWS KEY:", process.env.REACT_APP_NEWS_API_KEY);
       // Step 1: Fetch real articles from NewsAPI
       const newsRes = await fetch(
         `https://newsapi.org/v2/everything?q=${encodeURIComponent(topic.query)}&language=en&sortBy=publishedAt&pageSize=5&apiKey=${process.env.REACT_APP_NEWS_API_KEY}`
